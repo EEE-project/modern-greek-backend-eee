@@ -1,0 +1,29 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "modern-greek-backend-eee"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "modern-greek-inflexion-eee @ git+https://github.com/EEE-project/modern-greek-inflexion-eee.git",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "eee @ git+https://codeberg.org/EEE-project/eee.git",
+]
+
+[project.entry-points."eee.backends.v1"]
+el = "modern_greek_backend_eee:ModernGreekBackend"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/modern_greek_backend_eee"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
