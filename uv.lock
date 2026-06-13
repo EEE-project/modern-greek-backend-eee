@@ -103,13 +103,13 @@ wheels = [
 ]
 
 [[package]]
-name = "eee"
-version = "0.4.0"
-source = { git = "https://codeberg.org/EEE-project/eee.git#916129cc29e7d33deba57b3db6fc0826208bb1ad" }
+name = "eee-project"
+version = "0.5.0"
+source = { git = "https://codeberg.org/EEE-project/eee-project.git#af2728c04ea640f78cb285baba0a2fb29b8fa3a0" }
 dependencies = [
     { name = "marimo" },
-    { name = "modern-greek-inflexion-eee" },
     { name = "pyyaml" },
+    { name = "tomlkit" },
 ]
 
 [[package]]
@@ -278,19 +278,20 @@ dependencies = [
     { name = "modern-greek-inflexion-eee" },
 ]
 
-[package.optional-dependencies]
+[package.dev-dependencies]
 dev = [
-    { name = "eee" },
+    { name = "eee-project" },
     { name = "pytest" },
 ]
 
 [package.metadata]
-requires-dist = [
-    { name = "eee", marker = "extra == 'dev'", git = "https://codeberg.org/EEE-project/eee.git" },
-    { name = "modern-greek-inflexion-eee", git = "https://github.com/EEE-project/modern-greek-inflexion-eee.git" },
-    { name = "pytest", marker = "extra == 'dev'" },
+requires-dist = [{ name = "modern-greek-inflexion-eee", git = "https://github.com/EEE-project/modern-greek-inflexion-eee.git" }]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "eee-project", git = "https://codeberg.org/EEE-project/eee-project.git" },
+    { name = "pytest" },
 ]
-provides-extras = ["dev"]
 
 [[package]]
 name = "modern-greek-inflexion-eee"

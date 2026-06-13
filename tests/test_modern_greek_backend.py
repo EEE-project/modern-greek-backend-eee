@@ -153,6 +153,80 @@ def test_backend_language_is_el(backend):
     assert backend.language == "el"
 
 
+# ── get_tags() ───────────────────────────────────────────────────────────────
+
+
+def test_get_tags_noun_row_count(backend):
+    assert len(backend.get_tags("noun")) == 32  # 24 gendered + 8 no-gender
+
+
+def test_get_tags_adj_row_count(backend):
+    assert len(backend.get_tags("adjective")) == 32
+
+
+def test_get_tags_verb_row_count(backend):
+    assert len(backend.get_tags("verb")) == 80  # 60 indicative + 12 subjunctive + 8 imperative
+
+
+def test_get_tags_unknown_pos_returns_empty(backend):
+    assert backend.get_tags("particle") == []
+
+
+def test_get_tags_noun_no_dative(backend):
+    cases = {t["Case"] for t in backend.get_tags("noun") if "Case" in t}
+    assert "Dat" not in cases
+    assert cases == {"Nom", "Gen", "Acc", "Voc"}
+
+
+def test_get_tags_noun_gendered_rows_have_gender(backend):
+    tags = backend.get_tags("noun")
+    gendered = [t for t in tags if "Gender" in t]
+    assert len(gendered) == 24
+    assert {t["Gender"] for t in gendered} == {"Masc", "Fem", "Neut"}
+
+
+def test_get_tags_noun_no_gender_rows(backend):
+    tags = backend.get_tags("noun")
+    no_gender = [t for t in tags if "Gender" not in t]
+    assert len(no_gender) == 8
+
+
+def test_get_tags_verb_indicative_has_mood(backend):
+    tags = backend.get_tags("verb")
+    ind = [t for t in tags if t.get("Mood") == "Ind"]
+    assert len(ind) == 60
+
+
+def test_get_tags_verb_subjunctive_rows(backend):
+    tags = backend.get_tags("verb")
+    sub = [t for t in tags if t.get("Mood") == "Sub"]
+    assert len(sub) == 12
+    assert all(t["Aspect"] == "Perf" for t in sub)
+
+
+def test_get_tags_verb_imperative_rows(backend):
+    tags = backend.get_tags("verb")
+    imp = [t for t in tags if t.get("Mood") == "Imp"]
+    assert len(imp) == 8
+    assert all(t["Person"] == "2" for t in imp)
+
+
+def test_get_tags_noun_roundtrip_gynaika(backend):
+    """inflect() with features from get_tags() never raises for γυναίκα."""
+    for t in backend.get_tags("noun"):
+        feats = {k: v for k, v in t.items() if k != "tag"}
+        result = backend.inflect("γυναίκα", feats, "noun")
+        assert isinstance(result, set)
+
+
+def test_get_tags_verb_roundtrip_lyoo(backend):
+    """inflect() with features from get_tags() never raises for λύω."""
+    for t in backend.get_tags("verb"):
+        feats = {k: v for k, v in t.items() if k != "tag"}
+        result = backend.inflect("λύω", feats, "verb")
+        assert isinstance(result, set)
+
+
 def test_backend_satisfies_protocol():
     from eee_project._protocol import MorphologyBackend
     assert isinstance(ModernGreekBackend(), MorphologyBackend)

@@ -10,7 +10,7 @@ dependencies = [
     "modern-greek-inflexion-eee @ git+https://github.com/EEE-project/modern-greek-inflexion-eee.git",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest",
     "eee-project @ git+https://codeberg.org/EEE-project/eee-project.git",
