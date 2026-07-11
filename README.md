@@ -96,7 +96,9 @@ produces them).
 
 For `el` verbs, [unimorph-backend-eee](https://codeberg.org/EEE-project/unimorph-backend-eee)
 is the other available backend. They differ in coverage shape rather than one
-strictly superseding the other:
+strictly superseding the other. Quick-glance summary — `unimorph-backend-eee`'s
+own [Limitations](https://codeberg.org/EEE-project/unimorph-backend-eee#bundled-coverage)
+section is the canonical source for the `unimorph` column's specifics:
 
 | Feature | `modern-greek` (this package) | `unimorph` |
 |---------|:--------------|:-----------|
