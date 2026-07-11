@@ -8,6 +8,17 @@ defined in the [`eee`](https://codeberg.org/EEE-project/eee-project) package.
 
 Wraps [modern-greek-inflexion-eee](https://github.com/EEE-project/modern-greek-inflexion-eee),
 a fork of Picus Zeus's [modern-greek-inflexion](https://github.com/PicusZeus/modern-greek-inflexion).
+Deployed at [ellinika.com.pl](https://ellinika.com.pl). License: **MIT**.
+
+Per the upstream README, the library "works thanks to a big corpus on which it
+tests forms it tries to create." Word lists from
+[Wikileksiko](https://wikilex.gr/) are used as lexical reference data for
+accentuation and declension details (genitive existence, vocative endings in
+-ος nouns).
+
+**Period:** Standard Modern Greek (Demotic, post-1976). Primarily targets Νέα
+Ελληνική Κοινή after the 1976 language reform that established Demotic as the
+official standard. Some archaic forms are explicitly suppressed.
 
 
 ## Installation
@@ -49,8 +60,10 @@ both work without explicit registration.
 
 ## Coverage
 
-Rule-based algorithm: accepts any valid Modern Greek lemma. No `list_lemmas()` —
-the vocabulary is unbounded.
+Rule-based algorithm: accepts any lemma as input, applies Modern Greek
+morphological rules, and validates candidate forms against the corpus.
+Returns an empty set only when the lemma is unrecognizable. Because there is
+no finite lexicon, `list_lemmas()` is not supported.
 
 | POS | Support |
 |-----|---------|
@@ -66,6 +79,33 @@ the vocabulary is unbounded.
 - Some Katharevousa forms are explicitly suppressed.
 
 
+## Diachronic paradigm rung (Odyssey)
+
+`ModernGreekBackend` also powers the final **Modern** rung of the per-word
+diachronic paradigm dropdown (Epic → Classical Attic → Hellenistic → Roman
+Koine → **Modern**) in the Odyssey notebooks, wired via
+`build_grc_lexicon_tabs(..., el_backend=ModernGreekBackend())`. The Ancient
+polytonic lemma is normalized to monotonic (`poly_to_mono`) before inflection;
+the rung is shown only when the backend yields a paradigm — words with no
+living Modern reflex show no Modern rung (no changed/dead-lemma override map
+yet, so archaic-but-inflectable lemmas render as the rule-based backend
+produces them).
+
+
+## Backend comparison — vs. `unimorph`
+
+For `el` verbs, [unimorph-backend-eee](https://codeberg.org/EEE-project/unimorph-backend-eee)
+is the other available backend. They differ in coverage shape rather than one
+strictly superseding the other:
+
+| Feature | `modern-greek` (this package) | `unimorph` |
+|---------|:--------------|:-----------|
+| Perfect / pluperfect | empty set | verbal adjective (same form for all persons) |
+| Imp Cont vs Imp Aor | correctly distinct | identical (no aspect tag in bundled `ell.tsv`) |
+| Aor 3pl | standard -σαν only | may include -αν variant |
+| Particle prefix (θα/να) | not included | stripped on load, re-added on display |
+
+
 ## Development
 
 ```bash
@@ -76,4 +116,4 @@ uv run pytest
 
 ## Status
 
-v0.1.0
+v0.1.2
