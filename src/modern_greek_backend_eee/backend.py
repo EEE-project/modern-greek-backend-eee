@@ -12,6 +12,8 @@ from modern_greek_backend_eee._mg_features import (
     PASSIVE,
     mg_adj_path,
     mg_noun_path,
+    mg_pron_path,
+    mg_pron_strong,
     mg_verb_path,
     suppletive_lemma,
 )
@@ -19,7 +21,46 @@ from modern_greek_backend_eee._mg_features import (
 _GENDER_KEYS = frozenset({MASC, FEM, NEUT})
 
 # pos → filename stem of the label TSVs in eee_project.data.labels
-_LABEL_STEM = {"noun": "noun", "adjective": "adj", "verb": "verb"}
+_LABEL_STEM = {
+    "noun": "noun", "adjective": "adj", "verb": "verb",
+    "pronoun": "pronoun", "article": "article", "numeral": "numeral",
+}
+
+# Article only ever accepts these two lemmas -- see Article.all()'s own
+# "it's not a Greek article" check.
+_ARTICLE_LEMMAS = ("ο", "ένας")
+
+
+def _pron_shape(lemma: str) -> str:
+    """Classify a pronoun lemma into the shape mg_pron_path() needs.
+
+    Reads modern_greek_inflexion_eee's own PRONOUN_LEMMAS_* sets -- the
+    single source of truth for which lemmas exist and what shape each
+    produces (see that module for how this was derived). Unknown lemmas
+    default to "gendered", matching Pronoun.all()'s own majority shape;
+    they'll simply fail against mg_pron_path() the same way an unknown verb
+    fails against mg_verb_path() -- not this function's job to validate.
+    """
+    from modern_greek_inflexion_eee import PRONOUN_LEMMAS_INDECLINABLE, PRONOUN_LEMMAS_PERSONAL
+
+    if lemma in PRONOUN_LEMMAS_INDECLINABLE:
+        return "indeclinable"
+    if lemma in PRONOUN_LEMMAS_PERSONAL:
+        return "personal"
+    return "gendered"
+
+
+def _numeral_pos(lemma: str) -> str:
+    """Classify a numeral lemma as noun-type or adjective-type for Numeral(pos=).
+
+    Reads modern_greek_inflexion_eee's own quant_noun list. Defaults to
+    "adj" (Numeral's own default and the majority case: ordinals,
+    multiplicatives, and basic cardinals are all adjective-shaped; only
+    collective/quantity words like χιλιάδα "thousand" are noun-shaped).
+    """
+    from modern_greek_inflexion_eee import quant_noun
+
+    return "noun" if lemma in quant_noun else "adj"
 
 
 def _walk(d: dict, path: list[str]) -> set[str]:
@@ -54,7 +95,7 @@ class ModernGreekBackend:
     language: str = "el"
 
     def __init__(self) -> None:
-        self._cache: dict[tuple[str, str], dict] = {}
+        self._cache: dict[tuple[str, str, bool], dict] = {}
         self._slot_cache: dict[tuple[str, str], list] = {}
 
     def inflect(self, lemma: str, features: dict[str, str], pos: str, **_kw) -> set[str]:
@@ -93,6 +134,28 @@ class ModernGreekBackend:
             path = mg_adj_path(features)
             return _walk(full_paradigm, path)
 
+        elif pos == "pronoun":
+            strong = mg_pron_strong(features)
+            full_paradigm = self.paradigm(lemma, pos, strong=strong)
+            path = mg_pron_path(_pron_shape(lemma), features)
+            return _walk(full_paradigm, path)
+
+        elif pos == "article":
+            full_paradigm = self.paradigm(lemma, pos)
+            path = mg_pron_path("gendered", features)
+            return _walk(full_paradigm, path)
+
+        elif pos == "numeral":
+            full_paradigm = self.paradigm(lemma, pos)
+            if _numeral_pos(lemma) == "noun":
+                gender_path = mg_noun_path(features)
+                if gender_path is None:
+                    rest_path = mg_noun_path({**features, "Gender": "Masc"})[1:]
+                    return _walk_gender_union(full_paradigm, rest_path)
+                return _walk(full_paradigm, gender_path)
+            path = mg_adj_path(features)
+            return _walk(full_paradigm, path)
+
         else:
             raise ValueError(f"Unknown POS for inflect: {pos!r}")
 
@@ -112,6 +175,19 @@ class ModernGreekBackend:
             for case in ("Nom", "Gen", "Acc", "Voc"):
                 for num in ("Sing", "Plur"):
                     rows.append({"tag": f"{case}|{num}", "Case": case, "Number": num})
+            return rows
+
+        if pos in ("pronoun", "article", "numeral"):
+            # No gender-omitted variant here (unlike noun/adjective above):
+            # inflect()'s pronoun/article/numeral paths require Gender
+            # present for the "gendered" shape (mg_pron_path raises KeyError
+            # without it) -- omitting it would produce a slot that crashes
+            # when actually used, not one that unions across genders.
+            rows = []
+            for case in ("Nom", "Gen", "Acc", "Voc"):
+                for num in ("Sing", "Plur"):
+                    for gender in ("Masc", "Fem", "Neut"):
+                        rows.append({"tag": f"{case}|{num}|{gender}", "Case": case, "Number": num, "Gender": gender})
             return rows
 
         if pos == "verb":
@@ -198,17 +274,47 @@ class ModernGreekBackend:
         self._slot_cache[cache_key] = result
         return result
 
-    def paradigm(self, lemma: str, pos: str) -> dict:
+    def list_lemmas(self, pos: str) -> list[str]:
+        """Return known lemmas for pos, or [] for open/unbounded word classes.
+
+        verb/noun/adjective/adverb work from arbitrary input strings via
+        pattern-matched stemming rules, not a bundled lexicon -- there is no
+        finite list to enumerate for them, matching eee-project's own
+        "[] for algorithm-based backends with no finite vocabulary"
+        convention. pronoun and article are genuinely closed classes.
+        numeral's list only covers modern_greek_inflexion_eee's own
+        quant_adj/quant_noun (ordinals, multiplicatives, and quantity nouns)
+        -- basic cardinal numbers (one/two/three...) live in that library's
+        separate quant/hundreds lists, which use a comma/slash-delimited
+        multi-spelling format not cleanly enumerable without new parsing
+        work; inflect()/paradigm() still work for them directly by lemma,
+        this only affects lemma-picker UIs.
+        """
+        if pos == "pronoun":
+            from modern_greek_inflexion_eee import PRONOUN_LEMMAS
+            return sorted(PRONOUN_LEMMAS)
+        if pos == "article":
+            return sorted(_ARTICLE_LEMMAS)
+        if pos == "numeral":
+            from modern_greek_inflexion_eee import quant_adj, quant_noun
+            return sorted(set(quant_adj) | set(quant_noun))
+        return []
+
+    def paradigm(self, lemma: str, pos: str, *, strong: bool = True) -> dict:
         """Return the full inflectional paradigm for a lemma.
 
-        Results are cached per (lemma, pos). Not part of the MorphologyBackend
-        Protocol — available on ModernGreekBackend directly. The cache is not
-        thread-safe; use a separate instance per thread for concurrent use.
+        Results are cached per (lemma, pos, strong). strong only affects
+        pos="pronoun" (see Pronoun's own strong= constructor arg -- weak vs
+        strong/emphatic forms); every other pos ignores it, so its default
+        keeps their cache key stable at (lemma, pos, True). Not part of the
+        MorphologyBackend Protocol — available on ModernGreekBackend
+        directly. The cache is not thread-safe; use a separate instance per
+        thread for concurrent use.
 
         Raises ValueError for unknown pos values.
         Raises NotInGreekException or NotLegalVerbException from the library.
         """
-        key = (lemma, pos)
+        key = (lemma, pos, strong)
         if key in self._cache:
             return self._cache[key]
 
@@ -224,6 +330,15 @@ class ModernGreekBackend:
         elif pos == "adverb":
             from modern_greek_inflexion_eee import Adverb
             result = Adverb(lemma).all()
+        elif pos == "pronoun":
+            from modern_greek_inflexion_eee import Pronoun
+            result = Pronoun(lemma, strong=strong).all()
+        elif pos == "article":
+            from modern_greek_inflexion_eee import Article
+            result = Article(lemma).all()
+        elif pos == "numeral":
+            from modern_greek_inflexion_eee import Numeral
+            result = Numeral(lemma, pos=_numeral_pos(lemma)).all()
         else:
             raise ValueError(f"Unknown POS: {pos!r}")
 

@@ -46,6 +46,22 @@ forms = backend.inflect("γυναίκα", {
     "Case": "Gen", "Number": "Plur"
 }, "noun")
 # {"γυναικών"}
+
+# Pronoun — strong vs. weak/clitic (αυτός "he/it")
+backend.inflect("αυτός", {"Case": "Acc", "Number": "Sing", "Gender": "Masc"}, "pronoun")
+# {"αυτόν", "αυτό"}
+backend.inflect("αυτός", {"Case": "Acc", "Number": "Sing", "Gender": "Masc", "Clitic": "Yes"}, "pronoun")
+# {"τον"}
+
+# Article
+backend.inflect("ο", {"Case": "Gen", "Number": "Sing", "Gender": "Masc"}, "article")
+# {"του"}
+
+# Numeral — ordinal (adjective-shaped) vs. quantity noun (noun-shaped)
+backend.inflect("τρίτος", {"Case": "Nom", "Number": "Plur", "Gender": "Fem"}, "numeral")
+# {"τρίτες"}
+backend.inflect("χιλιάδα", {"Case": "Gen", "Number": "Sing"}, "numeral")
+# {"χιλιάδας"}
 ```
 
 Feature keys follow [Universal Dependencies FEATS](https://universaldependencies.org/u/feat/index.html).
@@ -60,10 +76,15 @@ both work without explicit registration.
 
 ## Coverage
 
-Rule-based algorithm: accepts any lemma as input, applies Modern Greek
-morphological rules, and validates candidate forms against the corpus.
-Returns an empty set only when the lemma is unrecognizable. Because there is
-no finite lexicon, `list_lemmas()` is not supported.
+Verb/noun/adjective/adverb: rule-based algorithm, accepts any lemma as input,
+applies Modern Greek morphological rules, and validates candidate forms
+against the corpus. Returns an empty set only when the lemma is
+unrecognizable. There is no finite lexicon for these four, so
+`list_lemmas()` returns `[]` for them.
+
+Pronoun/article/numeral are different: genuinely closed word classes, backed
+by `modern_greek_inflexion_eee`'s own explicit lemma lists (not a rule
+engine), so `list_lemmas()` returns the real set for these three.
 
 | POS | Support |
 |-----|---------|
@@ -71,6 +92,9 @@ no finite lexicon, `list_lemmas()` is not supported.
 | Noun | All cases and numbers |
 | Adjective | All genders, cases, numbers |
 | Adverb | Positive / comparative |
+| Pronoun | Case+Number+Gender for most; Case+Number only for εγώ/εσύ (no Gender axis); invariant for adverbial ones (πού/πότε-type) — see `_mg_features.mg_pron_path()`'s docstring for the three shapes. `Clitic=Yes` selects weak/enclitic forms |
+| Article | `ο` (definite) / `ένας` (indefinite) — Case+Number+Gender |
+| Numeral | Ordinals/multiplicatives (adjective-shaped) and quantity nouns like χιλιάδα (noun-shaped) — `list_lemmas()` covers these two closed lists; basic cardinal numbers (one/two/three...) still `inflect()` correctly by lemma but aren't enumerated (see `list_lemmas()`'s own docstring) |
 
 **Limitations**
 
@@ -118,4 +142,10 @@ uv run pytest
 
 ## Status
 
-v0.1.2
+v0.2.0 — added `pos="pronoun"`/`"article"`/`"numeral"` support to `inflect()`/
+`paradigm()`/`get_tags()`/`get_slot_templates()`, plus a new `list_lemmas()`
+method (previously absent from this backend entirely) covering the three
+closed classes; verb/noun/adjective/adverb correctly return `[]` (no finite
+lexicon). Backed by three new classes this session wired up from
+`modern-greek-inflexion-eee` (`Pronoun`, `Article`, `Numeral`) that were
+already implemented upstream but never exposed through this backend.

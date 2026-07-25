@@ -55,6 +55,54 @@ def backend():
         "adjective",
         {"καλός"},
     ),
+    (
+        "αυτός",
+        {"Case": "Nom", "Number": "Sing", "Gender": "Masc"},
+        "pronoun",
+        {"αυτός"},
+    ),
+    (
+        "αυτός",
+        {"Case": "Acc", "Number": "Sing", "Gender": "Masc", "Clitic": "Yes"},
+        "pronoun",
+        {"τον"},
+    ),
+    (
+        "εγώ",
+        {"Case": "Nom", "Number": "Sing"},
+        "pronoun",
+        {"εγώ"},
+    ),
+    (
+        "εγώ",
+        {"Case": "Acc", "Number": "Sing", "Clitic": "Yes"},
+        "pronoun",
+        {"με"},
+    ),
+    (
+        "πού",
+        {},
+        "pronoun",
+        {"πού"},
+    ),
+    (
+        "ο",
+        {"Case": "Gen", "Number": "Sing", "Gender": "Masc"},
+        "article",
+        {"του"},
+    ),
+    (
+        "τρίτος",
+        {"Case": "Nom", "Number": "Plur", "Gender": "Fem"},
+        "numeral",
+        {"τρίτες"},
+    ),
+    (
+        "χιλιάδα",
+        {"Case": "Gen", "Number": "Sing"},
+        "numeral",
+        {"χιλιάδας"},
+    ),
 ])
 def test_inflect_core(backend, lemma, features, pos, expected):
     assert backend.inflect(lemma, features, pos) == expected
@@ -146,6 +194,59 @@ def test_paradigm_cache_returns_same_object(backend):
     assert first is second
 
 
+def test_paradigm_pronoun_returns_dict(backend):
+    result = backend.paradigm("αυτός", "pronoun")
+    assert isinstance(result, dict)
+    assert "sg" in result
+
+
+def test_paradigm_article_returns_dict(backend):
+    result = backend.paradigm("ο", "article")
+    assert isinstance(result, dict)
+    assert "sg" in result
+
+
+def test_paradigm_numeral_returns_dict(backend):
+    result = backend.paradigm("τρίτος", "numeral")
+    assert isinstance(result, dict)
+    assert "adj" in result
+
+
+def test_paradigm_pronoun_cache_distinguishes_strong_weak(backend):
+    """strong is part of the cache key -- εγώ strong and weak must not collide."""
+    strong = backend.paradigm("εγώ", "pronoun", strong=True)
+    weak = backend.paradigm("εγώ", "pronoun", strong=False)
+    assert strong != weak
+    assert strong is backend.paradigm("εγώ", "pronoun", strong=True)
+
+
+# ── pronoun/article/numeral shape families ──────────────────────────────────
+
+
+@pytest.mark.parametrize("lemma,pos", [
+    ("όστις", "pronoun"), ("τις", "pronoun"), ("ίδιος", "pronoun"),
+    ("ο", "article"), ("ένας", "article"),
+])
+def test_gendered_family_roundtrip(backend, lemma, pos):
+    """inflect() with features from get_tags() never raises for a gendered lemma."""
+    for t in backend.get_tags(pos):
+        feats = {k: v for k, v in t.items() if k != "tag"}
+        result = backend.inflect(lemma, feats, pos)
+        assert isinstance(result, set)
+
+
+def test_personal_pronoun_ignores_gender_feature(backend):
+    """εγώ's path has no Gender axis -- any Gender value gives the same result."""
+    masc = backend.inflect("εγώ", {"Case": "Nom", "Number": "Sing", "Gender": "Masc"}, "pronoun")
+    no_gender = backend.inflect("εγώ", {"Case": "Nom", "Number": "Sing"}, "pronoun")
+    assert masc == no_gender == {"εγώ"}
+
+
+def test_indeclinable_pronoun_same_result_regardless_of_features(backend):
+    for feats in ({}, {"Case": "Gen"}, {"Case": "Nom", "Number": "Sing", "Gender": "Neut"}):
+        assert backend.inflect("πότε", feats, "pronoun") == {"πότε"}
+
+
 # ── Protocol compliance ───────────────────────────────────────────────────────
 
 
@@ -225,6 +326,52 @@ def test_get_tags_verb_roundtrip_lyoo(backend):
         feats = {k: v for k, v in t.items() if k != "tag"}
         result = backend.inflect("λύω", feats, "verb")
         assert isinstance(result, set)
+
+
+@pytest.mark.parametrize("pos", ["pronoun", "article", "numeral"])
+def test_get_tags_pronoun_family_row_count(backend, pos):
+    # 4 cases x 2 numbers x 3 genders, no gender-omitted variant (see
+    # backend.py's get_tags() docstring for why: unlike noun/adjective,
+    # these three pos's inflect() paths require Gender present).
+    assert len(backend.get_tags(pos)) == 24
+
+
+@pytest.mark.parametrize("pos", ["pronoun", "article", "numeral"])
+def test_get_tags_pronoun_family_no_dative(backend, pos):
+    cases = {t["Case"] for t in backend.get_tags(pos)}
+    assert cases == {"Nom", "Gen", "Acc", "Voc"}
+
+
+@pytest.mark.parametrize("pos", ["pronoun", "article", "numeral"])
+def test_get_tags_pronoun_family_all_rows_have_gender(backend, pos):
+    assert all("Gender" in t for t in backend.get_tags(pos))
+
+
+# ── list_lemmas() ────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize("pos", ["verb", "noun", "adjective", "adverb"])
+def test_list_lemmas_open_classes_return_empty(backend, pos):
+    """No bundled lexicon for these -- matches eee-project's algorithm-backend convention."""
+    assert backend.list_lemmas(pos) == []
+
+
+def test_list_lemmas_pronoun_count(backend):
+    assert len(backend.list_lemmas("pronoun")) == 57
+
+
+def test_list_lemmas_article(backend):
+    assert backend.list_lemmas("article") == ["ένας", "ο"]
+
+
+def test_list_lemmas_numeral_includes_known_entries(backend):
+    lemmas = backend.list_lemmas("numeral")
+    assert "τρίτος" in lemmas   # quant_adj
+    assert "χιλιάδα" in lemmas  # quant_noun
+
+
+def test_list_lemmas_unknown_pos_returns_empty(backend):
+    assert backend.list_lemmas("particle") == []
 
 
 def test_backend_satisfies_protocol():

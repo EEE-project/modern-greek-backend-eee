@@ -47,6 +47,10 @@ ADJ = "adj"      # positive degree
 COMP = "comp"    # comparative
 SUPERL = "superl"  # superlative
 
+# No-axis placeholder (Pronoun.all() uses this for the Gender level of
+# personal pronouns, and for all three levels of indeclinable ones)
+ND = "nd"
+
 # ── UD → library lookup tables ─────────────────────────────────────────────────
 
 _UD_NUMBER = {"Sing": SG, "Plur": PL}
@@ -156,3 +160,47 @@ def mg_adj_path(features: dict[str, str]) -> list[str]:
     case_key = _UD_CASE[features["Case"]]
 
     return [degree_key, number_key, gender_key, case_key]
+
+
+def mg_pron_path(shape: str, features: dict[str, str]) -> list[str]:
+    """Map UD features to a Pronoun.all()/Article.all() library key path.
+
+    shape is one of "gendered", "personal", "indeclinable" -- which family a
+    given lemma belongs to (Pronoun.all()'s return shape depends on the
+    lemma, not on features alone). The caller classifies the lemma via
+    modern_greek_inflexion_eee's PRONOUN_LEMMAS_* sets; this module has zero
+    library imports by design (see module docstring), so classification
+    can't happen here.
+
+    - "indeclinable" (invariant adverbial pronouns, e.g. πού/πότε): no axes
+      at all -> ["nd", "nd", "nd"].
+    - "personal" (εγώ/εσύ): Case+Number, no Gender -> [number, "nd", case].
+    - "gendered" (default -- also every Article lemma): Case+Number+Gender
+      -> [number, gender, case].
+
+    Raises KeyError if Number or Case is absent for "personal"/"gendered",
+    or if Gender is absent for "gendered".
+    """
+    if shape == "indeclinable":
+        return [ND, ND, ND]
+
+    number_key = _UD_NUMBER[features["Number"]]
+    case_key = _UD_CASE[features["Case"]]
+
+    if shape == "personal":
+        return [number_key, ND, case_key]
+
+    gender_key = _UD_GENDER[features["Gender"]]
+    return [number_key, gender_key, case_key]
+
+
+def mg_pron_strong(features: dict[str, str]) -> bool:
+    """Map UD Clitic feature to Pronoun's strong= constructor argument.
+
+    Clitic=Yes -> weak/enclitic forms (strong=False, e.g. με/σε/του).
+    Absent or any other value -> strong/emphatic forms (strong=True, e.g.
+    εμένα/εσένα/αυτού) -- the library's own default. Only meaningfully
+    changes output for the personal-pronoun family (εγώ/εσύ) and for
+    αυτός itself; harmless no-op for every other pronoun lemma.
+    """
+    return features.get("Clitic") != "Yes"
