@@ -272,7 +272,7 @@ source = { git = "https://codeberg.org/EEE-project/modern_greek_accentuation_eee
 
 [[package]]
 name = "modern-greek-backend-eee"
-version = "0.1.2"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "modern-greek-inflexion-eee" },
