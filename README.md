@@ -4,7 +4,14 @@ Modern Greek (`el`) morphology backend for the
 Ελληνικά Εκπαιδευτικά Εργαλεία (EEE) — Greek Language Educational Tools.
 
 Implements `ModernGreekBackend`, satisfying the `MorphologyBackend` protocol
-defined in the [`eee`](https://codeberg.org/EEE-project/eee-project) package.
+defined in the [`eee`](https://github.com/EEE-project/eee-project) package.
+
+🔓 Open source:
+- prod — https://github.com/EEE-project/modern-greek-backend-eee
+- prod mirror — https://gitlab.com/EEE-project/modern-greek-backend-eee
+- dev — https://codeberg.org/EEE-project/modern-greek-backend-eee
+
+💬 Community: https://telegram.me/eee_greek
 
 Wraps [modern-greek-inflexion-eee](https://github.com/EEE-project/modern-greek-inflexion-eee),
 a fork of Picus Zeus's [modern-greek-inflexion](https://github.com/PicusZeus/modern-greek-inflexion).
@@ -138,14 +145,3 @@ section is the canonical source for the `unimorph` column's specifics:
 uv sync --dev
 uv run pytest
 ```
-
-
-## Status
-
-v0.2.0 — added `pos="pronoun"`/`"article"`/`"numeral"` support to `inflect()`/
-`paradigm()`/`get_tags()`/`get_slot_templates()`, plus a new `list_lemmas()`
-method (previously absent from this backend entirely) covering the three
-closed classes; verb/noun/adjective/adverb correctly return `[]` (no finite
-lexicon). Backed by three new classes this session wired up from
-`modern-greek-inflexion-eee` (`Pronoun`, `Article`, `Numeral`) that were
-already implemented upstream but never exposed through this backend.
