@@ -31,6 +31,11 @@ official standard. Some archaic forms are explicitly suppressed.
 ## Installation
 
 ```bash
+pip install modern-greek-backend-eee
+```
+
+Development version (latest, from Codeberg):
+```bash
 pip install "modern-greek-backend-eee @ git+https://codeberg.org/EEE-project/modern-greek-backend-eee.git"
 ```
 

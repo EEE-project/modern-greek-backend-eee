@@ -4,10 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "modern-greek-backend-eee"
-version = "0.2.0"
+version = "1.0.0"
 requires-python = ">=3.12"
 dependencies = [
-    "modern-greek-inflexion-eee @ git+https://github.com/EEE-project/modern-greek-inflexion-eee.git",
+    "modern-greek-inflexion-eee>=2.1.1",
 ]
 
 [dependency-groups]
