@@ -5,11 +5,18 @@ build-backend = "hatchling.build"
 [project]
 name = "modern-greek-backend-eee"
 version = "1.0.0"
+description = "Modern Greek morphology backend for the EEE project"
 readme = "README.md"
+license = "Apache-2.0"
+authors = [{name = "Oleg Sadov", email = "oleg.sadov@gmail.com"}]
 requires-python = ">=3.12"
 dependencies = [
     "modern-greek-inflexion-eee>=2.1.1",
 ]
+
+[project.urls]
+Homepage = "https://github.com/EEE-project/modern-greek-backend-eee"
+Repository = "https://github.com/EEE-project/modern-greek-backend-eee"
 
 [dependency-groups]
 dev = [
