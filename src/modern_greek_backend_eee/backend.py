@@ -2,20 +2,21 @@
 from __future__ import annotations
 
 import csv
+import functools
 import importlib.resources
 
 from modern_greek_backend_eee._mg_features import (
-    ACC,
     ACTIVE,
     FEM,
     MASC,
+    MG_VERB_PERIPHRASTIC_PASSIVE_PATH,
     NEUT,
     PASSIVE,
-    SG,
     mg_adj_path,
     mg_noun_path,
     mg_pron_path,
     mg_pron_strong,
+    mg_verb_is_periphrastic,
     mg_verb_path,
     suppletive_lemma,
 )
@@ -33,6 +34,7 @@ _LABEL_STEM = {
 _ARTICLE_LEMMAS = ("ο", "ένας")
 
 
+@functools.lru_cache(maxsize=None)
 def _pron_shape(lemma: str) -> str:
     """Classify a pronoun lemma into the shape mg_pron_path() needs.
 
@@ -52,6 +54,7 @@ def _pron_shape(lemma: str) -> str:
     return "gendered"
 
 
+@functools.lru_cache(maxsize=None)
 def _numeral_pos(lemma: str) -> str:
     """Classify a numeral lemma as noun-type or adjective-type for Numeral(pos=).
 
@@ -88,6 +91,26 @@ def _walk_gender_union(paradigm: dict, number_case_path: list[str]) -> set[str]:
     return result
 
 
+def _inflect_noun_shaped(full_paradigm: dict, features: dict[str, str]) -> set[str]:
+    """Shared noun-gender-path walk for pos="noun" and noun-shaped numerals."""
+    gender_path = mg_noun_path(features)
+    if gender_path is None:
+        rest_path = mg_noun_path({**features, "Gender": "Masc"})[1:]
+        return _walk_gender_union(full_paradigm, rest_path)
+    return _walk(full_paradigm, gender_path)
+
+
+def _gendered_case_num_rows() -> list[dict[str, str]]:
+    """4 cases x 2 numbers x 3 genders -- shared by get_tags()'s noun/adjective
+    and pronoun/article/numeral branches."""
+    return [
+        {"tag": f"{case}|{num}|{gender}", "Case": case, "Number": num, "Gender": gender}
+        for case in ("Nom", "Gen", "Acc", "Voc")
+        for num in ("Sing", "Plur")
+        for gender in ("Masc", "Fem", "Neut")
+    ]
+
+
 class ModernGreekBackend:
     """Morphology backend for Modern Greek (language tag: 'el').
 
@@ -108,8 +131,7 @@ class ModernGreekBackend:
         library without wrapping.
         """
         if pos == "verb":
-            tense = features.get("Tense")
-            if tense == "Pqp" or (tense == "Pres" and features.get("Aspect") == "Perf"):
+            if mg_verb_is_periphrastic(features):
                 return self._inflect_verb_periphrastic(lemma, features)
             aspect = features.get("Aspect")
             actual_lemma = suppletive_lemma(lemma, aspect)
@@ -128,11 +150,7 @@ class ModernGreekBackend:
 
         elif pos == "noun":
             full_paradigm = self.paradigm(lemma, pos)
-            gender_path = mg_noun_path(features)
-            if gender_path is None:
-                rest_path = mg_noun_path({**features, "Gender": "Masc"})[1:]
-                return _walk_gender_union(full_paradigm, rest_path)
-            return _walk(full_paradigm, gender_path)
+            return _inflect_noun_shaped(full_paradigm, features)
 
         elif pos in ("adjective", "adverb"):
             full_paradigm = self.paradigm(lemma, pos)
@@ -153,11 +171,7 @@ class ModernGreekBackend:
         elif pos == "numeral":
             full_paradigm = self.paradigm(lemma, pos)
             if _numeral_pos(lemma) == "noun":
-                gender_path = mg_noun_path(features)
-                if gender_path is None:
-                    rest_path = mg_noun_path({**features, "Gender": "Masc"})[1:]
-                    return _walk_gender_union(full_paradigm, rest_path)
-                return _walk(full_paradigm, gender_path)
+                return _inflect_noun_shaped(full_paradigm, features)
             path = mg_adj_path(features)
             return _walk(full_paradigm, path)
 
@@ -208,7 +222,7 @@ class ModernGreekBackend:
             )
         else:
             full_paradigm = self.paradigm(lemma, "verb")
-            non_finite = _walk(full_paradigm.get("passive_perfect_participle", {}), [SG, NEUT, ACC])
+            non_finite = _walk(full_paradigm, MG_VERB_PERIPHRASTIC_PASSIVE_PATH)
         return {f"{aux} {nf}" for aux in aux_forms for nf in non_finite}
 
     def get_tags(self, pos: str) -> list[dict[str, str]]:
@@ -219,11 +233,7 @@ class ModernGreekBackend:
         Modern Greek nouns/adj use 4 cases (no Dative).
         """
         if pos in ("noun", "adjective"):
-            rows = []
-            for case in ("Nom", "Gen", "Acc", "Voc"):
-                for num in ("Sing", "Plur"):
-                    for gender in ("Masc", "Fem", "Neut"):
-                        rows.append({"tag": f"{case}|{num}|{gender}", "Case": case, "Number": num, "Gender": gender})
+            rows = _gendered_case_num_rows()
             for case in ("Nom", "Gen", "Acc", "Voc"):
                 for num in ("Sing", "Plur"):
                     rows.append({"tag": f"{case}|{num}", "Case": case, "Number": num})
@@ -235,12 +245,7 @@ class ModernGreekBackend:
             # present for the "gendered" shape (mg_pron_path raises KeyError
             # without it) -- omitting it would produce a slot that crashes
             # when actually used, not one that unions across genders.
-            rows = []
-            for case in ("Nom", "Gen", "Acc", "Voc"):
-                for num in ("Sing", "Plur"):
-                    for gender in ("Masc", "Fem", "Neut"):
-                        rows.append({"tag": f"{case}|{num}|{gender}", "Case": case, "Number": num, "Gender": gender})
-            return rows
+            return _gendered_case_num_rows()
 
         if pos == "verb":
             rows = []

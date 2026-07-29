@@ -105,8 +105,6 @@ engine), so `list_lemmas()` returns the real set for these three.
 
 **Limitations**
 
-- Perfect and pluperfect are periphrastic in Modern Greek and not modeled —
-  `inflect()` returns an empty set for `{"Tense": "Perf"}` or `{"Tense": "Pqp"}`.
 - Some Katharevousa forms are explicitly suppressed.
 
 
@@ -133,7 +131,7 @@ section is the canonical source for the `unimorph` column's specifics:
 
 | Feature | `modern-greek` (this package) | `unimorph` |
 |---------|:--------------|:-----------|
-| Perfect / pluperfect | empty set | verbal adjective (same form for all persons) |
+| Perfect / pluperfect | periphrastic (έχω/είχα + non-finite, e.g. `"έχω γράψει"`) | verbal adjective (same form for all persons) |
 | Imp Cont vs Imp Aor | correctly distinct | identical (no aspect tag in bundled `ell.tsv`) |
 | Aor 3pl | standard -σαν only | may include -αν variant |
 | Particle prefix (θα/να) | not included | stripped on load, re-added on display |

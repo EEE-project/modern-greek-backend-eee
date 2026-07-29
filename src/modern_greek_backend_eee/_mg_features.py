@@ -129,6 +129,27 @@ def mg_verb_path(features: dict[str, str]) -> list[str]:
     return [tense_key, voice_key, mood_key, number_key, person_key]
 
 
+def mg_verb_is_periphrastic(features: dict[str, str]) -> bool:
+    """True for the two tenses mg_verb_path() deliberately doesn't cover.
+
+    Perfect (Pres+Aspect=Perf) and pluperfect (Pqp) are periphrastic in
+    Modern Greek (aux verb + non-finite form, two words) -- there is no
+    single synthetic-tense key path for either in the library's paradigm
+    dict, so mg_verb_path() raises KeyError for both by design. Callers
+    must route these through the periphrastic construction instead of
+    mg_verb_path()/paradigm-cell lookup.
+    """
+    tense = features.get("Tense")
+    return tense == "Pqp" or (tense == "Pres" and features.get("Aspect") == "Perf")
+
+
+# Fixed cell for the periphrastic passive perfect/pluperfect's non-finite
+# piece: the passive perfect participle is invariant when used this way, and
+# neuter nominative/accusative are always identical in Greek, so either case
+# works -- see ModernGreekBackend._inflect_verb_periphrastic()'s docstring.
+MG_VERB_PERIPHRASTIC_PASSIVE_PATH = ["passive_perfect_participle", SG, NEUT, ACC]
+
+
 def mg_noun_path(features: dict[str, str]) -> list[str] | None:
     """Map UD features to [gender, number, case] library key path.
 
