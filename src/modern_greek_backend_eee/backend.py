@@ -239,13 +239,31 @@ class ModernGreekBackend:
                     rows.append({"tag": f"{case}|{num}", "Case": case, "Number": num})
             return rows
 
-        if pos in ("pronoun", "article", "numeral"):
+        if pos in ("article", "numeral"):
             # No gender-omitted variant here (unlike noun/adjective above):
-            # inflect()'s pronoun/article/numeral paths require Gender
-            # present for the "gendered" shape (mg_pron_path raises KeyError
-            # without it) -- omitting it would produce a slot that crashes
-            # when actually used, not one that unions across genders.
+            # inflect()'s article/numeral paths require Gender present for
+            # the "gendered" shape (mg_pron_path raises KeyError without
+            # it) -- omitting it would produce a slot that crashes when
+            # actually used, not one that unions across genders.
             return _gendered_case_num_rows()
+
+        if pos == "pronoun":
+            # Unlike article/numeral above, pronoun has a real strong/weak
+            # (UD Clitic) distinction -- see _mg_features.py's
+            # mg_pron_strong() -- that get_tags() never used to surface,
+            # making it reachable only by a caller who already knew to
+            # hand-build {"Clitic": "Yes"} out of band. The 24 base rows
+            # keep their exact existing tags with Clitic absent (preserving
+            # mg_pron_strong()'s "absent = strong" contract, so nothing
+            # dispatching on today's tags breaks); 24 more rows add
+            # Clitic="Yes" with a distinct tag. Harmless duplication for
+            # pronoun families where Clitic doesn't change anything
+            # (mg_pron_strong()'s own docstring: "no-op for every other
+            # pronoun lemma") -- get_tags() enumerates per POS, not per
+            # lemma, so there's no narrower point to hook this at.
+            base_rows = _gendered_case_num_rows()
+            clitic_rows = [{**row, "tag": f"{row['tag']}|Clitic", "Clitic": "Yes"} for row in base_rows]
+            return base_rows + clitic_rows
 
         if pos == "verb":
             rows = []

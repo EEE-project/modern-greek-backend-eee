@@ -396,12 +396,52 @@ def test_get_tags_verb_roundtrip_lyoo(backend):
         assert isinstance(result, set)
 
 
-@pytest.mark.parametrize("pos", ["pronoun", "article", "numeral"])
-def test_get_tags_pronoun_family_row_count(backend, pos):
-    # 4 cases x 2 numbers x 3 genders, no gender-omitted variant (see
-    # backend.py's get_tags() docstring for why: unlike noun/adjective,
-    # these three pos's inflect() paths require Gender present).
+def test_get_tags_pronoun_row_count_is_48_with_clitic_dimension(backend):
+    # 24 base rows (4 cases x 2 numbers x 3 genders) plus 24 more with
+    # Clitic=Yes added -- pronoun is the only one of the 3 with a strong/
+    # weak (Clitic) distinction, so it doubles; article/numeral don't
+    # (see the test below).
+    assert len(backend.get_tags("pronoun")) == 48
+
+
+@pytest.mark.parametrize("pos", ["article", "numeral"])
+def test_get_tags_article_numeral_row_count_stays_24(backend, pos):
+    # Unlike pronoun above, these two have no Clitic distinction --
+    # unaffected by splitting pronoun into its own branch.
     assert len(backend.get_tags(pos)) == 24
+
+
+def test_get_tags_pronoun_exactly_half_the_rows_have_clitic_yes(backend):
+    tags = backend.get_tags("pronoun")
+    with_clitic = [t for t in tags if t.get("Clitic") == "Yes"]
+    without_clitic = [t for t in tags if "Clitic" not in t]
+    assert len(with_clitic) == 24
+    assert len(without_clitic) == 24
+
+
+def test_get_tags_pronoun_no_row_has_clitic_no_explicitly(backend):
+    # mg_pron_strong()'s existing contract is "absent = strong"; the base
+    # 24 rows must stay absent (not e.g. "Clitic": "No"), so nothing
+    # dispatching on the pre-existing 24 tags changes behavior.
+    assert all(t.get("Clitic") != "No" for t in backend.get_tags("pronoun"))
+
+
+def test_get_tags_pronoun_base_rows_keep_their_original_tags_unchanged(backend):
+    # The original 24 tags (e.g. "Nom|Sing|Masc") must still exist,
+    # verbatim, so any caller already dispatching on them is unaffected.
+    original_tags = {f"{c}|{n}|{g}" for c in ("Nom", "Gen", "Acc", "Voc") for n in ("Sing", "Plur") for g in ("Masc", "Fem", "Neut")}
+    actual_tags = {t["tag"] for t in backend.get_tags("pronoun")}
+    assert original_tags <= actual_tags
+
+
+def test_get_tags_pronoun_all_48_tags_are_unique(backend):
+    tags = [t["tag"] for t in backend.get_tags("pronoun")]
+    assert len(tags) == len(set(tags))
+
+
+def test_get_tags_pronoun_clitic_rows_still_carry_case_number_gender(backend):
+    clitic_rows = [t for t in backend.get_tags("pronoun") if t.get("Clitic") == "Yes"]
+    assert all({"Case", "Number", "Gender"} <= t.keys() for t in clitic_rows)
 
 
 @pytest.mark.parametrize("pos", ["pronoun", "article", "numeral"])
